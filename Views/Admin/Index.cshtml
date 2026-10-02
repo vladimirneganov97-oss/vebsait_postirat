@@ -1,0 +1,189 @@
+@using LaundrySite.Models
+@{
+    var users = (List<User>)ViewBag.Users;
+    var slots = (List<WashSlot>)ViewBag.Slots;
+    var weeklyCounts = (Dictionary<int, int>)ViewBag.WeeklyCounts;
+    var days = new[] { "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье" };
+    var scheduleStatuses = new[] { "Свободно", "Технические работы", "Занято", "Выходной", "Уборка", "Закрыто" };
+    var currentBookings = slots.Where(x => x.ReservationWeekStart != null && x.ReservedBy != null).ToList();
+}
+<div class="admin-shell">
+    <div class="admin-top">
+        <div>
+            <div class="admin-kicker">ПАНЕЛЬ УПРАВЛЕНИЯ</div>
+            <h1>Админ-панель</h1>
+            <p>Управление аккаунтами, недельным расписанием и текущими бронированиями.</p>
+        </div>
+        <a class="button admin-logout" asp-action="Logout">Выйти</a>
+    </div>
+
+    @if (TempData["AdminMessage"] != null)
+    {
+        <div class="notice admin-notice">@TempData["AdminMessage"]</div>
+    }
+
+    <div class="admin-tabs" role="tablist">
+        <button type="button" class="admin-tab active" data-admin-tab="accounts">👤 <span>Зарегистрированные аккаунты</span></button>
+        <button type="button" class="admin-tab" data-admin-tab="schedule">📅 <span>Расписание на неделю</span></button>
+        <button type="button" class="admin-tab" data-admin-tab="bookings">🧺 <span>Текущее бронирование</span><b class="tab-badge">@currentBookings.Count</b></button>
+    </div>
+
+    <section class="admin-panel active" data-admin-panel="accounts">
+        <div class="admin-section-head">
+            <div>
+                <div class="section-label">АККАУНТЫ</div>
+                <h2>Зарегистрированные аккаунты <span class="count-badge">@users.Count</span></h2>
+                <p>Изменяйте недельный лимит, задавайте новый пароль или удаляйте аккаунты.</p>
+            </div>
+        </div>
+        <div class="admin-table-wrap">
+            <table class="admin-users-table">
+                <thead><tr><th>ID</th><th>Имя</th><th>Фамилия</th><th>Комната</th><th>Стирки</th><th>Лимит</th><th>Новый пароль</th><th>Дата регистрации</th><th>Действия</th></tr></thead>
+                <tbody>
+                @foreach (var u in users)
+                {
+                    var count = weeklyCounts.TryGetValue(u.Id, out var c) ? c : 0;
+                    <tr>
+                        <td><code>@u.PublicId</code></td>
+                        <td class="admin-name">@u.FirstName</td>
+                        <td class="admin-name">@u.LastName</td>
+                        <td class="admin-room">@u.RoomNumber</td>
+                        <td><strong>@count</strong></td>
+                        <td>
+                            <form asp-action="UpdateUserLimit" method="post" class="inline-form admin-mini-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@u.Id" />
+                                <input name="weeklyBookingLimit" type="number" min="0" max="50" value="@u.WeeklyBookingLimit" />
+                                <button class="small white-button" type="submit">Сохранить</button>
+                            </form>
+                        </td>
+                        <td>
+                            <form asp-action="ResetUserPassword" method="post" class="admin-password-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@u.Id" />
+                                <div class="password-field admin-password-field">
+                                    <input id="new-password-@u.Id" name="newPassword" type="password" minlength="8" placeholder="Новый пароль" required />
+                                    <button type="button" class="password-toggle eye-toggle" data-password-toggle="new-password-@u.Id" aria-label="Показать пароль" aria-pressed="false" title="Показать новый пароль"><span class="eye-icon">👁</span></button>
+                                </div>
+                                <button class="small white-button" type="submit">Сменить</button>
+                            </form>
+                        </td>
+                        <td>@u.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                        <td>
+                            <form asp-action="DeleteUser" method="post" onsubmit="return confirm('Удалить аккаунт и его бронирования?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@u.Id" />
+                                <button class="small danger" type="submit">Удалить</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="admin-panel" data-admin-panel="schedule">
+        <div class="admin-section-head">
+            <div>
+                <div class="section-label">НЕДЕЛЯ</div>
+                <h2>Расписание стирок</h2>
+                <p>Каждый день содержит 5 стандартных окон: 08:00–11:00, 12:00–15:00, 16:00–19:00, 20:00–23:00 и 00:00–03:00.</p>
+            </div>
+        </div>
+
+        <div class="admin-week-list">
+        @foreach (var day in days)
+        {
+            var daySlots = slots.Where(x => x.Day == day).OrderBy(x => x.Id).ToList();
+            <section class="admin-day schedule-day">
+                <div class="admin-day-title">
+                    <div><span class="day-number">@(Array.IndexOf(days, day) + 1)</span><h3>@day</h3></div>
+                    <span class="day-count">@daySlots.Count слотов</span>
+                </div>
+
+                <div class="admin-slot-list">
+                @if (!daySlots.Any())
+                {
+                    <div class="admin-empty-day">На этот день стирок пока нет.</div>
+                }
+                @foreach (var slot in daySlots)
+                {
+                    <div class="admin-schedule-slot">
+                        <div class="admin-slot-time"><span>ВРЕМЯ</span><strong>@slot.Time</strong></div>
+                        <div class="admin-slot-editor">
+                            <form class="admin-slot-form" asp-action="UpdateSchedule" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@slot.Id" />
+                                <input type="hidden" name="day" value="@day" />
+                                <label><span>Время</span><input name="time" value="@slot.Time" maxlength="30" required /></label>
+                                <label><span>Статус</span><select name="status">
+                                    @foreach (var status in scheduleStatuses)
+                                    {
+                                        if (slot.Status == status)
+                                        {
+                                            <option value="@status" selected>@status</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@status">@status</option>
+                                        }
+                                    }
+                                </select></label>
+                                <div class="admin-booking-preview">
+                                    <span>БРОНИРОВАНИЕ</span>
+                                    <strong>@(slot.ReservedBy ?? "Свободно")</strong>
+                                </div>
+                                <button type="submit" class="small white-button">Сохранить</button>
+                            </form>
+                            <form asp-action="DeleteSchedule" method="post" class="admin-delete-inline" onsubmit="return confirm('Удалить эту стирку из расписания?');">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@slot.Id" />
+                                <button class="small danger" type="submit">Удалить</button>
+                            </form>
+                        </div>
+                    </div>
+                }
+                </div>
+
+                <form asp-action="AddSchedule" method="post" class="admin-add-slot">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="day" value="@day" />
+                    <label><span>Новое время</span><input name="time" maxlength="30" placeholder="например, 08:00–11:00" required /></label>
+                    <label><span>Статус</span><select name="status">@foreach (var status in scheduleStatuses) { <option value="@status">@status</option> }</select></label>
+                    <button class="small white-button" type="submit">＋ Добавить стирку</button>
+                </form>
+            </section>
+        }
+        </div>
+    </section>
+
+    <section class="admin-panel" data-admin-panel="bookings">
+        <div class="admin-section-head">
+            <div>
+                <div class="section-label">БРОНИРОВАНИЯ</div>
+                <h2>Текущее бронирование <span class="count-badge">@currentBookings.Count</span></h2>
+                <p>Здесь отображаются занятые слоты текущей недели. Администратор может освободить любой слот.</p>
+            </div>
+        </div>
+        <div class="booking-list">
+        @if (!currentBookings.Any())
+        {
+            <div class="empty-state">Сейчас нет активных бронирований.</div>
+        }
+        @foreach (var s in currentBookings.OrderBy(x => Array.IndexOf(days, x.Day)).ThenBy(x => x.Id))
+        {
+            <div class="booking-card">
+                <div class="booking-day">@s.Day</div>
+                <div class="booking-time">@s.Time</div>
+                <div class="booking-user"><span>Занял</span><strong>@s.ReservedBy</strong></div>
+                <form asp-action="ClearReservation" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@s.Id" />
+                    <button class="small danger" type="submit">Освободить</button>
+                </form>
+            </div>
+        }
+        </div>
+    </section>
+</div>

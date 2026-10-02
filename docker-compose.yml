@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    container_name: laundry_app
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:5000
+      LAUNDRY_DB_PATH: /data/laundry.db
+      LAUNDRY_ADMIN_PASSWORD: ${LAUNDRY_ADMIN_PASSWORD:?Set LAUNDRY_ADMIN_PASSWORD in .env}
+    volumes:
+      - laundry_data:/data
+    ports:
+      - "5000:5000"
+    expose:
+      - "5000"
+
+
+volumes:
+  laundry_data:

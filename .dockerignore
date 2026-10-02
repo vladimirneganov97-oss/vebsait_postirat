@@ -1,0 +1,10 @@
+bin/
+obj/
+.git/
+.vs/
+.vscode/
+Data/*.db
+Data/*.db-shm
+Data/*.db-wal
+README.md
+*.zip

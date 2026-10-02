@@ -1,0 +1,84 @@
+@model List<WashSlot>
+@{
+    var days = new[] { "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье" };
+    var weeklyBookings = (int)(ViewBag.WeeklyBookings ?? 0);
+    var weeklyLimit = (int)(ViewBag.WeeklyLimit ?? 2);
+}
+<div class="hero">
+    <div>
+        <h1>График стирки</h1>
+        <p>Стирки идут с 08:00 до 03:00. Между каждой стиркой — час перерыва.</p>
+    </div>
+    @if (ViewBag.UserName == null)
+    {
+        <a class="button" asp-controller="Account" asp-action="Login">Войти в аккаунт</a>
+    }
+</div>
+
+@if (ViewBag.NewAccountId != null)
+{
+    <div class="notice"><b>Ваш ID аккаунта:</b> <code>@ViewBag.NewAccountId</code>. Сохраните его для входа.</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="notice error"><b>Ограничение:</b> @TempData["Error"]</div>
+}
+
+<div class="notice">
+    <b>Правила:</b> одна стирка длится 3 часа, затем час перерыв. Один пользователь может забронировать
+    <b>не более @weeklyLimit стирок в неделю</b>.
+    @if (ViewBag.UserName != null)
+    {
+        <span> Вы использовали <b>@weeklyBookings из @weeklyLimit</b> записей на этой неделе.</span>
+    }
+</div>
+
+<div class="schedule">
+@foreach (var day in days)
+{
+    <section class="day">
+        <h2>@day</h2>
+        @foreach (var slot in Model.Where(x => x.Day == day))
+        {
+            <div class="slot">
+                <div><b>@slot.Time</b></div>
+                @if (slot.Status != "Свободно")
+                {
+                    <span class="slot-status status-blocked">@slot.Status</span>
+                }
+                else if (slot.ReservedBy == null || slot.ReservationWeekStart?.Date != ((DateTime)ViewBag.WeekStart).Date)
+                {
+                    <span class="slot-status free">Свободно</span>
+                    @if (ViewBag.UserName != null)
+                    {
+                        @if (weeklyBookings < weeklyLimit)
+                        {
+                            <form asp-action="Reserve" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@slot.Id" />
+                                <button class="small">Занять</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="muted">Лимит @weeklyBookings/@weeklyLimit</span>
+                        }
+                    }
+                }
+                else
+                {
+                    <span class="slot-status busy">Занято: @slot.ReservedBy</span>
+                    @if (slot.ReservedByUserId == Context.Session.GetInt32("UserId"))
+                    {
+                        <form asp-action="Cancel" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@slot.Id" />
+                            <button class="small danger">Освободить</button>
+                        </form>
+                    }
+                }
+            </div>
+        }
+    </section>
+}
+</div>

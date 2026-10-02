@@ -1,0 +1,15 @@
+<div class="card form-card">
+    <h1>Создать аккаунт</h1>
+    <p>После регистрации сайт выдаст уникальный ID. Сохраните его — он нужен для входа.</p>
+    <form asp-action="Register" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="error"></div>
+        <label>Имя<input name="firstName" required maxlength="30" autocomplete="given-name" pattern="[A-Za-zА-Яа-яЁё]+" title="Только буквы, максимум 30 символов" data-letters-only /></label>
+        <label>Фамилия<input name="lastName" required maxlength="30" autocomplete="family-name" pattern="[A-Za-zА-Яа-яЁё]+" title="Только буквы, максимум 30 символов" data-letters-only /></label>
+        <label>Номер комнаты<input name="roomNumber" required type="number" min="1" max="1000" step="1" inputmode="numeric" /></label>
+        <label>Пароль<div class="password-field"><input id="register-password" name="password" type="password" minlength="8" required autocomplete="new-password" /><button type="button" class="password-toggle eye-toggle" data-password-toggle="register-password" aria-label="Показать пароль" aria-pressed="false" title="Показать пароль"><span class="eye-icon" aria-hidden="true">👁</span></button></div></label>
+        <label>Повторите пароль<div class="password-field"><input id="register-password-confirm" name="passwordConfirm" type="password" minlength="8" required autocomplete="new-password" /><button type="button" class="password-toggle eye-toggle" data-password-toggle="register-password-confirm" aria-label="Показать пароль" aria-pressed="false" title="Показать пароль"><span class="eye-icon" aria-hidden="true">👁</span></button></div></label>
+        <button class="button" type="submit">Зарегистрироваться</button>
+    </form>
+    <p>Уже есть аккаунт? <a asp-action="Login">Войти</a></p>
+</div>
